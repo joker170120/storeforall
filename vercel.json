@@ -16,6 +16,10 @@
       "destination": "https://storeforall.167.233.117.168.sslip.io/healthz"
     },
     {
+      "source": "/b/:slug/p/:id",
+      "destination": "/product.html"
+    },
+    {
       "source": "/b/:slug/t/:code",
       "destination": "/table.html"
     },

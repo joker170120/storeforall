@@ -9,41 +9,45 @@
 <body>
   <div class="wrap">
     <header class="top">
-      <a class="brand" href="/">Store<span>ForAll</span></a>
+      <a class="brand" href="/">StoreForAll</a>
       <nav class="nav">
         <a class="ghost" href="/admin/login.html">Espace marchand</a>
         <a class="ghost" href="/plateforme">Plateforme</a>
       </nav>
     </header>
     <section class="hero">
-      <p class="kicker">Abonnement + commission</p>
-      <h1>Chaque marchand a sa boutique.</h1>
-      <p class="lede">Vitrine, commandes en FCFA, WhatsApp et QR de table. Les photos et vidéos passent par le même chemin que GabMall : morceaux, compression, Wasabi, Bunny, HLS.</p>
+      <p class="kicker">France · euros · TVA 20 %</p>
+      <h1>Ouvre ta boutique. Encaisse tes commandes.</h1>
+      <p class="lede">Catalogue, fiche produit, panier et commande. Abonnement mensuel et commission. WhatsApp et QR de table pour le restaurant.</p>
     </section>
+    <section id="plans" class="plans"></section>
     <section id="shops" class="grid"></section>
-    <section class="card" style="margin-top:18px">
+    <section class="card" style="margin-top:22px">
       <h2>Ouvrir une boutique</h2>
-      <p class="muted">Essai Découverte, 14 jours, commission 8 %. Les autres marchands ne voient pas tes commandes.</p>
+      <p class="muted">Découverte à 0 €, 14 jours, commission 8 %. Les autres marchands ne voient pas tes commandes.</p>
       <form id="open">
-        <label>Nom de la boutique<input name="shopName" required placeholder="Atelier Nguema" /></label>
+        <label>Nom de la boutique<input name="shopName" required placeholder="Atelier Nord" /></label>
         <div class="row">
           <label style="flex:1">Type
             <select name="kind">
               <option value="boutique">Boutique</option>
-              <option value="resto">Bar / restaurant</option>
+              <option value="resto">Restaurant</option>
             </select>
           </label>
-          <label style="flex:1">Ville<input name="city" placeholder="Libreville" /></label>
+          <label style="flex:1">Ville<input name="city" required placeholder="Lyon" /></label>
         </div>
-        <label>WhatsApp<input name="whatsapp" placeholder="24106…" /></label>
+        <label>Adresse<input name="addressLine" required placeholder="12 rue des Capucins" /></label>
+        <label>Code postal<input name="postalCode" required inputmode="numeric" pattern="[0-9]{5}" placeholder="69001" /></label>
+        <label>WhatsApp<input name="whatsapp" placeholder="06…" /></label>
         <label>E-mail<input name="email" type="email" required /></label>
         <label>Mot de passe<input name="password" type="password" minlength="8" required /></label>
         <button class="btn" type="submit">Créer ma boutique</button>
         <p id="openMsg" class="muted"></p>
       </form>
     </section>
-    <footer>Prix en FCFA. Paiement de la plateforme : abonnement mensuel et commission sur chaque commande.</footer>
+    <footer>Prix TTC en euros, TVA 20 %. Abonnement et commission sur chaque commande.</footer>
   </div>
+  <script src="/js/money.js"></script>
   <script src="/js/home.js"></script>
 </body>
 </html>

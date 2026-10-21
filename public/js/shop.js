@@ -1,46 +1,32 @@
 const parts = location.pathname.split("/").filter(Boolean);
 const slug = parts[0] === "b" ? decodeURIComponent(parts[1] || "") : "";
 const tableCode = parts[2] === "t" ? decodeURIComponent(parts[3] || "") : "";
-const basket = new Map();
 
-function esc(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function money(n) {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(n) || 0))} FCFA`;
-}
-
-function play(video, src, mp4) {
-  if (!src) return;
-  if (video.canPlayType("application/vnd.apple.mpegurl")) {
-    video.src = src;
-    return;
-  }
-  import("https://esm.sh/hls.js@1.5.17")
-    .then((mod) => {
-      const Hls = mod.default;
-      if (Hls.isSupported()) {
-        const player = new Hls();
-        player.loadSource(src);
-        player.attachMedia(video);
-      } else if (mp4) video.src = mp4;
-    })
-    .catch(() => {
-      if (mp4) video.src = mp4;
-    });
-}
-
-function renderCart() {
-  const form = document.getElementById("cart");
-  let total = 0;
-  for (const item of basket.values()) total += item.priceFcfa * item.qty;
+function refreshCart() {
+  const rows = readCart(slug);
+  document.getElementById("count").textContent = String(cartCount(slug));
+  const total = cartTotal(slug);
+  const tax = vatOf(total);
   document.getElementById("total").textContent = money(total);
-  form.hidden = basket.size === 0;
+  document.getElementById("vat").textContent = total ? `dont TVA 20 % ${money(tax.vat)}` : "";
+  document.getElementById("lines").innerHTML =
+    rows
+      .map(
+        (row) => `<p>${esc(row.name)} × ${row.qty} <span class="price">${money(row.priceCents * row.qty)}</span>
+          <button class="ghost" type="button" data-remove="${esc(row.id)}">Retirer</button></p>`
+      )
+      .join("") || `<p class="muted">Le panier est vide.</p>`;
+}
+
+function openCart() {
+  refreshCart();
+  document.getElementById("drawer").hidden = false;
+  document.getElementById("backdrop").hidden = false;
+}
+
+function closeCart() {
+  document.getElementById("drawer").hidden = true;
+  document.getElementById("backdrop").hidden = true;
 }
 
 async function boot() {
@@ -50,74 +36,74 @@ async function boot() {
     document.getElementById("title").textContent = data.error || "Introuvable";
     return;
   }
-  document.title = data.shop.name;
-  document.getElementById("title").textContent = data.shop.name;
-  document.getElementById("pitch").textContent = data.shop.pitch || "";
+  const shop = data.shop;
+  document.title = shop.name;
+  document.getElementById("title").textContent = shop.name;
+  document.getElementById("pitch").textContent = shop.pitch || "";
   document.getElementById("kicker").textContent = tableCode
-    ? `Table ${tableCode} · ${data.shop.city || ""}`
-    : `${data.shop.kind === "resto" ? "Restaurant" : "Boutique"} · ${data.shop.city || ""}`;
-  if (data.shop.whatsapp) {
-    const wa = document.getElementById("wa");
-    if (wa) {
-      wa.hidden = false;
-      wa.href = `https://wa.me/${data.shop.whatsapp}`;
-    }
+    ? `Table ${tableCode} · ${shop.addressLine}, ${shop.postalCode} ${shop.city}`
+    : `${shop.kind === "resto" ? "Restaurant" : "Boutique"} · ${shop.postalCode} ${shop.city}`;
+  const form = document.getElementById("checkout");
+  form.addressLine.value = shop.addressLine || "";
+  form.postalCode.value = shop.postalCode || "";
+  form.city.value = shop.city || "";
+  const wa = document.getElementById("wa");
+  if (wa && shop.whatsapp) {
+    wa.hidden = false;
+    wa.href = `https://wa.me/${shop.whatsapp}`;
   }
-  const root = document.getElementById("products");
-  root.innerHTML = (data.products || [])
+  document.getElementById("products").innerHTML = (data.products || [])
     .map((product) => {
-      const visual = product.image
-        ? `<img alt="" src="${esc(product.image)}" />`
-        : `<div class="ph"></div>`;
-      const video = product.video ? `<video controls playsinline data-hls="${esc(product.video)}"></video>` : "";
-      return `<article class="card product">
+      const href = `/b/${encodeURIComponent(slug)}/p/${encodeURIComponent(product.id)}${tableCode ? `?table=${encodeURIComponent(tableCode)}` : ""}`;
+      const visual = product.image ? `<img alt="" src="${esc(product.image)}" />` : `<div class="ph"></div>`;
+      return `<a class="card product-card" href="${href}">
         ${visual}
-        ${video}
         <h3>${esc(product.name)}</h3>
-        <p class="muted">${esc(product.description || "")}</p>
-        <p class="price">${esc(product.priceLabel || money(product.priceFcfa))}</p>
-        <button class="btn" type="button" data-id="${product.id}">Ajouter</button>
-      </article>`;
+        <p class="price">${esc(product.priceLabel)}</p>
+        <p class="muted">TTC · TVA 20 %</p>
+      </a>`;
     })
     .join("");
-  root.querySelectorAll("video[data-hls]").forEach((video) => play(video, video.dataset.hls, ""));
-  root.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-id]");
-    if (!button) return;
-    const product = data.products.find((row) => row.id === button.dataset.id);
-    const current = basket.get(product.id) || { ...product, qty: 0 };
-    current.qty += 1;
-    basket.set(product.id, current);
-    renderCart();
-  });
-  document.getElementById("cart").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const msg = document.getElementById("msg");
-    msg.textContent = "Envoi…";
-    const response = await fetch(`/api/shops/${encodeURIComponent(slug)}/orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customerName: form.get("customerName"),
-        customerPhone: form.get("customerPhone"),
-        tableCode,
-        items: [...basket.values()].map((item) => ({ productId: item.id, qty: item.qty }))
-      })
-    });
-    const body = await response.json();
-    if (!response.ok) {
-      msg.textContent = body.error || "Commande refusée";
-      return;
-    }
-    msg.innerHTML = `Commande ${body.order.number} · ${body.order.priceLabel}. ${
-      body.order.whatsappUrl ? `<a href="${body.order.whatsappUrl}">Envoyer sur WhatsApp</a>` : "Enregistrée."
-    }`;
-    if (body.order.whatsappUrl) window.open(body.order.whatsappUrl, "_blank", "noopener");
-    basket.clear();
-    renderCart();
-  });
+  refreshCart();
 }
+
+document.getElementById("openCart").addEventListener("click", openCart);
+document.getElementById("closeCart").addEventListener("click", closeCart);
+document.getElementById("backdrop").addEventListener("click", closeCart);
+document.getElementById("lines").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove]");
+  if (!button) return;
+  writeCart(slug, readCart(slug).filter((row) => row.id !== button.dataset.remove));
+  refreshCart();
+});
+document.getElementById("checkout").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const msg = document.getElementById("msg");
+  const items = readCart(slug);
+  if (!items.length) {
+    msg.textContent = "Ajoute un article.";
+    return;
+  }
+  msg.textContent = "Envoi…";
+  const body = Object.fromEntries(new FormData(event.currentTarget).entries());
+  body.tableCode = tableCode;
+  body.items = items.map((item) => ({ productId: item.id, qty: item.qty }));
+  const response = await fetch(`/api/shops/${encodeURIComponent(slug)}/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    msg.textContent = payload.error || "Commande refusée";
+    return;
+  }
+  writeCart(slug, []);
+  refreshCart();
+  msg.innerHTML = `Commande ${esc(payload.order.number)} · ${esc(payload.order.priceLabel)}. ${
+    payload.order.whatsappUrl ? `<a href="${esc(payload.order.whatsappUrl)}">Envoyer sur WhatsApp</a>` : "Enregistrée."
+  }`;
+});
 
 boot().catch((error) => {
   document.getElementById("title").textContent = error.message;

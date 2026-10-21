@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Produit · StoreForAll</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" id="back" href="/">StoreForAll</a>
+      <button class="ghost cart-btn" id="openCart" type="button">Panier <span class="badge" id="count">0</span></button>
+    </header>
+    <article id="fiche" class="fiche"></article>
+  </div>
+  <div id="backdrop" class="backdrop" hidden></div>
+  <aside id="drawer" class="drawer" hidden>
+    <div class="row" style="justify-content:space-between">
+      <h2>Panier</h2>
+      <button class="ghost" id="closeCart" type="button">Fermer</button>
+    </div>
+    <div id="lines"></div>
+    <p>Total TTC <strong id="total">0,00 €</strong></p>
+    <p class="muted" id="vat"></p>
+    <form id="checkout">
+      <label>Nom<input name="customerName" required /></label>
+      <label>Téléphone<input name="customerPhone" /></label>
+      <label>Adresse<input name="addressLine" required /></label>
+      <div class="row">
+        <label style="flex:1">Code postal<input name="postalCode" required pattern="[0-9]{5}" inputmode="numeric" /></label>
+        <label style="flex:2">Ville<input name="city" required /></label>
+      </div>
+      <button class="btn" type="submit">Commander</button>
+      <p id="msg"></p>
+    </form>
+  </aside>
+  <script src="/js/money.js"></script>
+  <script src="/js/cart.js"></script>
+  <script src="/js/product.js"></script>
+</body>
+</html>

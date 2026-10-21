@@ -3,7 +3,7 @@ const { randomUUID } = require("crypto");
 const QRCode = require("qrcode");
 const store = require("../lib/store");
 const { hashPassword, verifyPassword, issueSession, sessionFromRequest } = require("../lib/auth");
-const { formatFcfa } = require("../lib/money");
+const { formatEur, eurosToCents, vatFromTtc, VAT_RATE } = require("../lib/money");
 const { PLANS, planById, publicPlan, subscriptionLive } = require("../lib/plans");
 const billing = require("../lib/billing");
 const { orderLink, digits } = require("../lib/whatsapp");
@@ -31,6 +31,39 @@ function slugify(value) {
     .slice(0, 48);
 }
 
+function priceFromBody(body) {
+  if (body?.priceCents != null && body.priceCents !== "") return Math.round(Number(body.priceCents));
+  if (body?.priceEur != null && body.priceEur !== "") return eurosToCents(body.priceEur);
+  return NaN;
+}
+
+function rememberCustomer(current, shop, order) {
+  current.customers = current.customers || [];
+  const key = order.customerPhone || order.customerName.toLowerCase();
+  let row = current.customers.find((item) => item.shopId === shop.id && item.key === key);
+  if (!row) {
+    row = {
+      id: randomUUID(),
+      shopId: shop.id,
+      key,
+      orders: 0,
+      spentCents: 0,
+      createdAt: Date.now()
+    };
+    current.customers.push(row);
+  }
+  row.name = order.customerName;
+  row.phone = order.customerPhone;
+  row.addressLine = order.addressLine;
+  row.postalCode = order.postalCode;
+  row.city = order.city;
+  row.country = "FR";
+  row.orders += 1;
+  row.spentCents += order.subtotalCents;
+  row.lastOrderAt = order.createdAt;
+  order.customerId = row.id;
+}
+
 function publicBase() {
   return String(process.env.PUBLIC_BASE_URL || `http://127.0.0.1:${process.env.PORT || 4180}`).replace(/\/$/, "");
 }
@@ -42,7 +75,10 @@ function publicShop(data, shop) {
     slug: shop.slug,
     name: shop.name,
     kind: shop.kind,
+    addressLine: shop.addressLine || "",
+    postalCode: shop.postalCode || "",
     city: shop.city || "",
+    country: shop.country || "FR",
     pitch: shop.pitch || "",
     whatsapp: shop.whatsapp || "",
     open: subscriptionLive(sub)
@@ -54,8 +90,9 @@ function publicProduct(row) {
     id: row.id,
     name: row.name,
     description: row.description || "",
-    priceFcfa: row.priceFcfa,
-    priceLabel: formatFcfa(row.priceFcfa),
+    priceCents: row.priceCents,
+    priceLabel: formatEur(row.priceCents),
+    vatRate: VAT_RATE,
     image: row.image || "",
     video: row.video || "",
     stock: row.stock
@@ -163,8 +200,8 @@ function createApiRouter() {
             productId: product.id,
             name: product.name,
             qty,
-            priceFcfa: product.priceFcfa,
-            lineFcfa: product.priceFcfa * qty
+            priceCents: product.priceCents,
+            lineCents: product.priceCents * qty
           });
         }
         const tableCode = String(req.body?.tableCode || "").trim();
@@ -177,34 +214,56 @@ function createApiRouter() {
           }
         }
         const customerName = String(req.body?.customerName || "").trim();
+        const addressLine = String(req.body?.addressLine || live.addressLine || "").trim();
+        const postalCode = String(req.body?.postalCode || live.postalCode || "").trim();
+        const city = String(req.body?.city || live.city || "").trim();
         if (customerName.length < 2) {
           const err = new Error("Indique ton nom.");
           err.status = 400;
           throw err;
         }
+        if (!/^\d{5}$/.test(postalCode) || city.length < 2 || addressLine.length < 4) {
+          const err = new Error("Adresse française incomplète : rue, code postal et ville.");
+          err.status = 400;
+          throw err;
+        }
         current.orderSeq = Number(current.orderSeq || 1000) + 1;
-        const subtotalFcfa = lines.reduce((sum, line) => sum + line.lineFcfa, 0);
+        const subtotalCents = lines.reduce((sum, line) => sum + line.lineCents, 0);
+        const tax = vatFromTtc(subtotalCents);
         const order = {
           id: randomUUID(),
           shopId: live.id,
           number: `SF-${current.orderSeq}`,
           items: lines,
-          subtotalFcfa,
+          subtotalCents,
+          htCents: tax.htCents,
+          vatCents: tax.vatCents,
+          vatRate: tax.vatRate,
+          currency: "EUR",
           customerName,
           customerPhone: digits(req.body?.customerPhone),
+          addressLine,
+          postalCode,
+          city,
+          country: "FR",
           tableCode,
           channel: tableCode ? "table" : "vitrine",
           status: "nouvelle",
           createdAt: Date.now()
         };
+        rememberCustomer(current, live, order);
         billing.recordCommission(current, live, order);
         order.whatsappUrl = orderLink(live, order);
         current.orders.push(order);
         return {
           id: order.id,
           number: order.number,
-          subtotalFcfa: order.subtotalFcfa,
-          priceLabel: formatFcfa(order.subtotalFcfa),
+          subtotalCents: order.subtotalCents,
+          htCents: order.htCents,
+          vatCents: order.vatCents,
+          vatRate: order.vatRate,
+          priceLabel: formatEur(order.subtotalCents),
+          vatLabel: formatEur(order.vatCents),
           status: order.status,
           tableCode: order.tableCode,
           whatsappUrl: order.whatsappUrl
@@ -246,7 +305,10 @@ function createApiRouter() {
           slug,
           name: shopName,
           kind,
+          addressLine: String(req.body?.addressLine || "").trim(),
+          postalCode: String(req.body?.postalCode || "").trim(),
           city: String(req.body?.city || "").trim(),
+          country: "FR",
           whatsapp: digits(req.body?.whatsapp),
           pitch: String(req.body?.pitch || "").trim(),
           createdAt: Date.now()
@@ -306,7 +368,8 @@ function createApiRouter() {
             status: sub.status,
             renewsAt: sub.renewsAt,
             live: subscriptionLive(sub),
-            priceFcfa: sub.priceFcfa,
+            priceCents: sub.priceCents,
+            priceLabel: formatEur(sub.priceCents),
             commissionRate: sub.commissionRate
           }
         : null
@@ -324,9 +387,9 @@ function createApiRouter() {
     const auth = requireMerchant(req, res);
     if (!auth) return;
     const name = String(req.body?.name || "").trim();
-    const priceFcfa = Math.round(Number(req.body?.priceFcfa));
-    if (name.length < 2 || !Number.isFinite(priceFcfa) || priceFcfa < 0) {
-      return res.status(400).json({ error: "Nom et prix FCFA requis." });
+    const priceCents = priceFromBody(req.body);
+    if (name.length < 2 || !Number.isFinite(priceCents) || priceCents < 0) {
+      return res.status(400).json({ error: "Nom et prix en euros requis." });
     }
     const created = await store.update((current) => {
       const row = {
@@ -334,7 +397,7 @@ function createApiRouter() {
         shopId: auth.shop.id,
         name,
         description: String(req.body?.description || "").trim(),
-        priceFcfa,
+        priceCents,
         stock: Math.max(0, Math.round(Number(req.body?.stock ?? 0))),
         active: true,
         image: "",
@@ -362,7 +425,9 @@ function createApiRouter() {
         }
         if (req.body?.name != null) row.name = String(req.body.name).trim();
         if (req.body?.description != null) row.description = String(req.body.description).trim();
-        if (req.body?.priceFcfa != null) row.priceFcfa = Math.max(0, Math.round(Number(req.body.priceFcfa) || 0));
+        if (req.body?.priceEur != null || req.body?.priceCents != null) {
+          row.priceCents = Math.max(0, priceFromBody(req.body) || 0);
+        }
         if (req.body?.stock != null) row.stock = Math.max(0, Math.round(Number(req.body.stock) || 0));
         if (req.body?.active != null) row.active = Boolean(req.body.active);
         if (req.body?.mediaId != null) attachMedia(current, auth.shop.id, row, req.body.mediaId);
@@ -372,6 +437,28 @@ function createApiRouter() {
     } catch (error) {
       res.status(error.status || 400).json({ error: error.message || "Mise à jour impossible" });
     }
+  });
+
+  router.get("/api/admin/customers", (req, res) => {
+    const auth = requireMerchant(req, res);
+    if (!auth) return;
+    const customers = (store.read().customers || [])
+      .filter((row) => row.shopId === auth.shop.id)
+      .sort((a, b) => (b.lastOrderAt || 0) - (a.lastOrderAt || 0))
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        phone: row.phone || "",
+        addressLine: row.addressLine || "",
+        postalCode: row.postalCode || "",
+        city: row.city || "",
+        country: row.country || "FR",
+        orders: row.orders || 0,
+        spentCents: row.spentCents || 0,
+        spentLabel: formatEur(row.spentCents || 0),
+        lastOrderAt: row.lastOrderAt || null
+      }));
+    res.json({ ok: true, customers });
   });
 
   router.get("/api/admin/orders", (req, res) => {
@@ -509,7 +596,9 @@ function createApiRouter() {
         kind: shop.kind,
         planId: sub?.planId || "",
         status: sub?.status || "",
-        priceFcfa: sub?.priceFcfa || 0,
+        priceCents: sub?.priceCents || 0,
+        priceLabel: formatEur(sub?.priceCents || 0),
+        city: shop.city || "",
         commissionRate: sub?.commissionRate || 0,
         orders,
         ...ledger
@@ -517,7 +606,10 @@ function createApiRouter() {
     });
     res.json({
       ok: true,
-      mrrFcfa: billing.mrr(data),
+      mrrCents: billing.mrr(data),
+      mrrLabel: formatEur(billing.mrr(data)),
+      currency: "EUR",
+      vatRate: VAT_RATE,
       ledger: billing.sumLedger(data),
       shops
     });
@@ -528,7 +620,7 @@ function createApiRouter() {
     if (!auth) return;
     const plan = planById(req.body?.planId);
     if (!plan) return res.status(400).json({ error: "Offre inconnue" });
-    const status = req.body?.status === "suspendu" ? "suspendu" : plan.priceFcfa === 0 ? "essai" : "actif";
+    const status = req.body?.status === "suspendu" ? "suspendu" : plan.priceCents === 0 ? "essai" : "actif";
     try {
       const sub = await store.update((current) => {
         if (!(current.shops || []).some((shop) => shop.id === req.params.id)) {

@@ -9,18 +9,20 @@
 <body>
   <div class="wrap">
     <header class="top">
-      <a class="brand" href="/">Store<span>ForAll</span></a>
+      <a class="brand" href="/">StoreForAll</a>
     </header>
-    <h1>Abonnements et commissions</h1>
+    <h1>Comptes marchands</h1>
+    <p class="lede">Abonnements en euros et commission sur les commandes TTC. Découverte 0 € · 8 %. Boutique 29 € · 5 %. Marché 79 € · 3 %.</p>
     <form id="login" class="card">
       <label>E-mail plateforme<input name="email" type="email" value="platform@demo.storeforall" required /></label>
       <label>Mot de passe<input name="password" type="password" required /></label>
       <button class="btn" type="submit">Voir les comptes</button>
-      <p id="msg" class="muted">Démo locale : platform@demo.storeforall / storeforall-demo</p>
+      <p id="msg" class="muted"></p>
     </form>
     <p id="mrr" class="lede"></p>
     <div id="shops" class="grid"></div>
   </div>
+  <script src="/js/money.js"></script>
   <script src="/js/plateforme.js"></script>
 </body>
 </html>

@@ -1,7 +1,3 @@
-function money(n) {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(n) || 0))} FCFA`;
-}
-
 const tokenKey = "storeforall-platform-token";
 
 async function overview() {
@@ -13,13 +9,13 @@ async function overview() {
     document.getElementById("msg").textContent = data.error || "Refusé";
     return;
   }
-  document.getElementById("mrr").textContent = `Abonnements actifs : ${money(data.mrrFcfa)} / mois · commissions dues ${money(data.ledger.commissionDue)}`;
+  document.getElementById("mrr").textContent = `Abonnements actifs : ${data.mrrLabel} / mois · commissions dues ${money(data.ledger.commissionDue)}`;
   document.getElementById("shops").innerHTML = (data.shops || [])
     .map(
       (shop) => `<article class="card">
-        <h2>${shop.name}</h2>
-        <p class="muted">${shop.kind} · ${shop.planId} · ${shop.status}</p>
-        <p>${money(shop.priceFcfa)} / mois · commission ${Math.round(shop.commissionRate * 1000) / 10} %</p>
+        <h2>${esc(shop.name)}</h2>
+        <p class="muted">${esc(shop.kind)} · ${esc(shop.city || "")} · ${esc(shop.planId)} · ${esc(shop.status)}</p>
+        <p>${esc(shop.priceLabel)} / mois · commission ${Math.round(shop.commissionRate * 1000) / 10} %</p>
         <p>${shop.orders} commandes · commission due ${money(shop.commissionDue)}</p>
         <div class="row">
           <button class="btn" data-id="${shop.id}" data-plan="boutique" type="button">Boutique</button>

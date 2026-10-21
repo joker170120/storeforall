@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Parcours local : isolation marchand, commande FCFA + commission, pipeline média.
+ * Parcours local : isolation marchand, commande en euros + commission, pipeline média.
  */
 const { spawn, spawnSync } = require("child_process");
 const fs = require("fs");
@@ -126,11 +126,11 @@ async function main() {
     const shops = await api("/api/shops");
     if (shops.shops.length < 2) fail("boutiques démo");
 
-    const koko = await login("koko@demo.storeforall");
-    const maman = await login("maman@demo.storeforall");
+    const koko = await login("lune@demo.storeforall");
+    const maman = await login("marcel@demo.storeforall");
     const created = await api(
       "/api/admin/products",
-      { method: "POST", body: JSON.stringify({ name: "Boubou isolation", priceFcfa: 12000, stock: 3 }) },
+      { method: "POST", body: JSON.stringify({ name: "Écharpe test", priceEur: 12, stock: 3 }) },
       koko
     );
     const mamanProducts = await api("/api/admin/products", {}, maman);
@@ -142,26 +142,32 @@ async function main() {
     });
     if (leaked.status !== 404) fail("produit d'un autre marchand accessible " + leaked.status);
 
-    const menu = await api("/api/shops/chez-maman");
-    const poulet = menu.products.find((row) => row.name === "Poulet braisé");
-    const jus = menu.products.find((row) => row.name === "Jus de gingembre");
-    const order = await api("/api/shops/chez-maman/orders", {
+    const menu = await api("/api/shops/bistrot-marcel");
+    const steak = menu.products.find((row) => row.name === "Steak frites");
+    const vin = menu.products.find((row) => row.name === "Verre de vin");
+    const order = await api("/api/shops/bistrot-marcel/orders", {
       method: "POST",
       body: JSON.stringify({
-        customerName: "Awa",
-        customerPhone: "24106000000",
+        customerName: "Camille Martin",
+        customerPhone: "0612345678",
+        addressLine: "8 rue Oberkampf",
+        postalCode: "75011",
+        city: "Paris",
         tableCode: "T1",
         items: [
-          { productId: poulet.id, qty: 2 },
-          { productId: jus.id, qty: 1 }
+          { productId: steak.id, qty: 2 },
+          { productId: vin.id, qty: 1 }
         ]
       })
     });
-    if (order.order.subtotalFcfa !== 10500) fail("total " + order.order.subtotalFcfa);
+    if (order.order.subtotalCents !== 5400) fail("total " + order.order.subtotalCents);
+    if (order.order.vatCents !== 900) fail("tva " + order.order.vatCents);
     const mamanOrders = await api("/api/admin/orders", {}, maman);
     const savedOrder = mamanOrders.orders.find((row) => row.id === order.order.id);
-    if (!savedOrder || savedOrder.commissionFcfa !== 315) fail("commission " + JSON.stringify(savedOrder));
-    if (!order.order.whatsappUrl.includes("wa.me/241066000002")) fail("whatsapp");
+    if (!savedOrder || savedOrder.commissionCents !== 162) fail("commission " + JSON.stringify(savedOrder));
+    const clients = await api("/api/admin/customers", {}, maman);
+    if (!clients.customers.some((row) => row.name === "Camille Martin")) fail("client");
+    if (!order.order.whatsappUrl.includes("wa.me/33601020305")) fail("whatsapp");
     if (order.order.tableCode !== "T1") fail("table");
     const kokoOrders = await api("/api/admin/orders", {}, koko);
     if (kokoOrders.orders.some((row) => row.id === order.order.id)) fail("fuite commande");
@@ -217,19 +223,19 @@ async function main() {
       body: JSON.stringify({ email: "platform@demo.storeforall", password })
     });
     const overview = await api("/api/platform/overview", {}, platform.token);
-    const chez = overview.shops.find((shop) => shop.slug === "chez-maman");
-    if (!chez || chez.commissionDue !== 315) fail("grand livre " + JSON.stringify(chez));
-    if (overview.mrrFcfa !== 9900 + 24900) fail("mrr " + overview.mrrFcfa);
+    const chez = overview.shops.find((shop) => shop.slug === "bistrot-marcel");
+    if (!chez || chez.commissionDue !== 162) fail("grand livre " + JSON.stringify(chez));
+    if (overview.mrrCents !== 2900 + 7900) fail("mrr " + overview.mrrCents);
 
     console.log(
       JSON.stringify({
         ok: true,
         shops: shops.shops.length,
         order: order.order.number,
-        commissionFcfa: order.order.commissionFcfa,
+        commissionCents: order.order.commissionCents,
         photo: photo.url,
         hls: ready.url_hls,
-        mrrFcfa: overview.mrrFcfa
+        mrrCents: overview.mrrCents
       })
     );
   } finally {

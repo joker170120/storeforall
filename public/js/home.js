@@ -1,23 +1,22 @@
 const grid = document.getElementById("shops");
 
-function esc(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function money(n) {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(n) || 0))} FCFA`;
-}
-
 async function load() {
-  const data = await fetch("/api/shops").then((res) => res.json());
-  grid.innerHTML = (data.shops || [])
+  const [shopsRes, plansRes] = await Promise.all([fetch("/api/shops"), fetch("/api/plans")]);
+  const shops = await shopsRes.json();
+  const plans = await plansRes.json();
+  document.getElementById("plans").innerHTML = (plans.plans || [])
+    .map(
+      (plan) => `<article class="plan">
+        <p class="kicker">${esc(plan.name)}</p>
+        <strong>${esc(plan.priceLabel)}</strong>
+        <p class="muted">${plan.priceCents ? "par mois" : "pour démarrer"} · commission ${esc(plan.commissionLabel)}</p>
+      </article>`
+    )
+    .join("");
+  grid.innerHTML = (shops.shops || [])
     .map(
       (shop) => `<a class="card" href="/b/${encodeURIComponent(shop.slug)}">
-        <p class="kicker">${shop.kind === "resto" ? "Table & menu" : "Boutique"} · ${esc(shop.city || "Gabon")}</p>
+        <p class="kicker">${shop.kind === "resto" ? "Restaurant" : "Boutique"} · ${esc(shop.city || "France")}</p>
         <h2>${esc(shop.name)}</h2>
         <p class="muted">${esc(shop.pitch || "")}</p>
         <p>${shop.open ? "Ouverte" : "Abonnement suspendu"}</p>
@@ -47,7 +46,5 @@ document.getElementById("open").addEventListener("submit", async (event) => {
 });
 
 load().catch((error) => {
-  grid.innerHTML = `<p class="error">${error.message}</p>`;
+  grid.innerHTML = `<p class="error">${esc(error.message)}</p>`;
 });
-
-window.StoreMoney = { money };

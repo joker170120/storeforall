@@ -5,11 +5,14 @@ require("dotenv").config({ path: path.join(__dirname, ".env") });
 const express = require("express");
 const store = require("./lib/store");
 const seed = require("./lib/seed");
+const { migrateFrance } = require("./lib/france");
 const wasabi = require("./lib/wasabi");
 const { createApiRouter } = require("./routes/api");
 const { createMediaRouter } = require("./routes/media");
 
-if (!store.read()) store.write(seed.build());
+const existing = store.read();
+if (!existing) store.write(seed.build());
+else if (migrateFrance(existing)) store.write(existing);
 
 const app = express();
 const publicDir = path.join(__dirname, "public");
@@ -62,6 +65,9 @@ if (dataRole()) {
     res.redirect(302, dest);
   });
 } else {
+  app.get("/b/:slug/p/:id", (_req, res) => {
+    res.sendFile(path.join(publicDir, "product.html"));
+  });
   app.get("/b/:slug/t/:code", (_req, res) => {
     res.sendFile(path.join(publicDir, "table.html"));
   });

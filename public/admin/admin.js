@@ -4,8 +4,9 @@ function token() {
   return localStorage.getItem(tokenKey) || "";
 }
 
-function money(n) {
-  return `${new Intl.NumberFormat("fr-FR").format(Math.round(Number(n) || 0))} FCFA`;
+function money(cents) {
+  const value = Math.round(Number(cents) || 0) / 100;
+  return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(value);
 }
 
 async function api(path, options = {}) {
@@ -56,7 +57,7 @@ async function boot() {
       section.hidden = section.id !== button.dataset.tab;
     }
   });
-  await Promise.all([products(), orders(), medias(), tables(), offer()]);
+  await Promise.all([products(), orders(), customers(), medias(), tables(), offer()]);
 }
 
 async function products() {
@@ -65,7 +66,7 @@ async function products() {
   root.innerHTML = `<form class="card" id="newProduct">
       <h2>Nouveau produit</h2>
       <label>Nom<input name="name" required /></label>
-      <label>Prix FCFA<input name="priceFcfa" type="number" min="0" required /></label>
+      <label>Prix TTC (€)<input name="priceEur" type="number" min="0" step="0.01" required /></label>
       <label>Stock<input name="stock" type="number" min="0" value="10" /></label>
       <label>Description<textarea name="description"></textarea></label>
       <button class="btn" type="submit">Ajouter</button>
@@ -76,7 +77,7 @@ async function products() {
     .map(
       (product) => `<article class="card">
         <strong>${esc(product.name)}</strong>
-        <div class="price">${money(product.priceFcfa)}</div>
+        <div class="price">${money(product.priceCents)}</div>
         <p class="muted">${esc(product.description || "")} · stock ${product.stock} · ${product.active ? "visible" : "masqué"}</p>
         ${product.image ? `<img alt="" src="${esc(product.image)}" style="max-width:160px;border-radius:12px" />` : ""}
       </article>`
@@ -85,7 +86,7 @@ async function products() {
   document.getElementById("newProduct").addEventListener("submit", async (event) => {
     event.preventDefault();
     const body = Object.fromEntries(new FormData(event.currentTarget).entries());
-    body.priceFcfa = Number(body.priceFcfa);
+    body.priceEur = Number(body.priceEur);
     body.stock = Number(body.stock);
     await api("/api/admin/products", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     await products();
@@ -100,8 +101,8 @@ async function orders() {
       .map(
         (order) => `<article class="card" data-id="${order.id}">
           <strong>${esc(order.number)}</strong> · ${esc(order.status)}
-          <div class="price">${money(order.subtotalFcfa)}</div>
-          <p class="muted">${esc(order.customerName)} ${order.tableCode ? "· table " + esc(order.tableCode) : ""} · commission ${money(order.commissionFcfa)}</p>
+          <div class="price">${money(order.subtotalCents)}</div>
+          <p class="muted">${esc(order.customerName)} · ${esc(order.postalCode || "")} ${esc(order.city || "")} ${order.tableCode ? "· table " + esc(order.tableCode) : ""} · TVA ${money(order.vatCents)} · commission ${money(order.commissionCents)}</p>
           <div class="row">
             <button type="button" data-status="confirmee">Confirmer</button>
             <button type="button" data-status="payee">Payée</button>
@@ -123,6 +124,21 @@ async function orders() {
     await orders();
     await offer();
   };
+}
+
+async function customers() {
+  const data = await api("/api/admin/customers");
+  const root = document.getElementById("clients");
+  root.innerHTML =
+    (data.customers || [])
+      .map(
+        (customer) => `<article class="card">
+          <strong>${esc(customer.name)}</strong>
+          <div class="price">${esc(customer.spentLabel)} · ${customer.orders} commande${customer.orders > 1 ? "s" : ""}</div>
+          <p class="muted">${esc(customer.phone)} · ${esc(customer.addressLine)}, ${esc(customer.postalCode)} ${esc(customer.city)}</p>
+        </article>`
+      )
+      .join("") || `<p class="muted">Aucun client pour l'instant. Ils apparaissent après une commande.</p>`;
 }
 
 async function putPart(url, chunk) {
@@ -314,7 +330,7 @@ async function offer() {
   const ledger = data.ledger || {};
   root.innerHTML = `<article class="card">
       <h2>${esc(data.plan?.name || "Offre")}</h2>
-      <p>Abonnement ${money(data.subscription?.priceFcfa || 0)} / mois · commission ${Math.round((data.subscription?.commissionRate || 0) * 1000) / 10} %</p>
+      <p>Abonnement ${money(data.subscription?.priceCents || 0)} / mois · commission ${Math.round((data.subscription?.commissionRate || 0) * 1000) / 10} %</p>
       <p class="muted">Commission due ${money(ledger.commissionDue)} · encaissée ${money(ledger.commissionEncaissee)}</p>
       <p class="muted">L'offre se change depuis l'espace plateforme.</p>
     </article>`;
