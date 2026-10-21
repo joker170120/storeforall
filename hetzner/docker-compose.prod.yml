@@ -1,0 +1,21 @@
+# App sur Hetzner. Fichiers sur Wasabi. Lecture via Bunny CDN.
+# Les secrets restent dans .env, jamais dans ce fichier.
+services:
+  storeforall:
+    build:
+      context: ..
+      dockerfile: hetzner/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4180"
+    volumes:
+      - storeforall-data:/app/data
+    ports:
+      - "4180:4180"
+
+volumes:
+  storeforall-data:

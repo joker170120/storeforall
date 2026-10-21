@@ -1,0 +1,14 @@
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": [
+        "http://localhost:4180",
+        "http://127.0.0.1:4180"
+      ],
+      "AllowedMethods": ["GET", "PUT", "HEAD", "POST"],
+      "AllowedHeaders": ["*"],
+      "ExposeHeaders": ["ETag", "Content-Length"],
+      "MaxAgeSeconds": 3000
+    }
+  ]
+}

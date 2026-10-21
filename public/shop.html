@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boutique · StoreForAll</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="/">Store<span>ForAll</span></a>
+      <a class="ghost" id="wa" href="#" hidden>WhatsApp</a>
+    </header>
+    <p class="kicker" id="kicker"></p>
+    <h1 id="title">Boutique</h1>
+    <p class="lede" id="pitch"></p>
+    <div id="products" class="grid"></div>
+    <form id="cart" class="cart" hidden>
+      <strong id="total">0 FCFA</strong>
+      <label>Nom<input name="customerName" required /></label>
+      <label>Téléphone<input name="customerPhone" /></label>
+      <button type="submit">Commander</button>
+      <p id="msg"></p>
+    </form>
+  </div>
+  <script src="/js/shop.js"></script>
+</body>
+</html>

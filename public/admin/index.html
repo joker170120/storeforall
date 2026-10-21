@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/admin/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/admin/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/admin/admin.css" />
+  <title>Admin · StoreForAll</title>
+</head>
+<body>
+  <header>
+    <div>
+      <strong id="shopName">Boutique</strong>
+      <div class="muted" id="planLine"></div>
+    </div>
+    <a href="/admin/login.html" id="logout">Sortir</a>
+  </header>
+  <main>
+    <div class="tabs">
+      <button type="button" data-tab="produits" class="active">Produits</button>
+      <button type="button" data-tab="commandes">Commandes</button>
+      <button type="button" data-tab="medias">Médias</button>
+      <button type="button" data-tab="tables">Tables</button>
+      <button type="button" data-tab="offre">Offre</button>
+    </div>
+    <section id="produits"></section>
+    <section id="commandes" hidden></section>
+    <section id="medias" hidden></section>
+    <section id="tables" hidden></section>
+    <section id="offre" hidden></section>
+  </main>
+  <script src="/admin/admin.js"></script>
+</body>
+</html>

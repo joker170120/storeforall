@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0f172a" />
+  <link rel="manifest" href="/admin/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/admin/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/admin/admin.css" />
+  <title>Connexion marchand</title>
+</head>
+<body>
+  <div class="login">
+    <form id="login" class="card">
+      <p class="muted">StoreForAll</p>
+      <h1>Espace marchand</h1>
+      <label>E-mail<input name="email" type="email" required /></label>
+      <label>Mot de passe<input name="password" type="password" required /></label>
+      <button class="btn" type="submit">Entrer</button>
+      <p id="msg" class="muted"></p>
+      <p class="muted">Démo locale : koko@demo.storeforall ou maman@demo.storeforall. Mot de passe initial : storeforall-demo (DEMO_PASSWORD au premier lancement).</p>
+    </form>
+  </div>
+  <script>
+    if (localStorage.getItem("storeforall-token")) location.replace("/admin/");
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/admin/sw.js", { scope: "/admin/" }).catch(() => {});
+    document.getElementById("login").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const body = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const data = await res.json();
+      const msg = document.getElementById("msg");
+      if (!res.ok) { msg.textContent = data.error || "Refusé"; return; }
+      localStorage.setItem("storeforall-token", data.token);
+      location.href = "/admin/";
+    });
+  </script>
+</body>
+</html>
