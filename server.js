@@ -16,18 +16,25 @@ const publicDir = path.join(__dirname, "public");
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(express.json({ limit: "1mb" }));
+function publicSite() {
+  return String(process.env.PUBLIC_BASE_URL || "https://storeforall.vercel.app").replace(/\/$/, "");
+}
+
+function dataRole() {
+  return process.env.ROLE === "data";
+}
+
+app.get("/healthz", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "storeforall",
+    role: dataRole() ? "data" : "site",
+    storage: dataRole() ? "hetzner" : "local",
+    publicSite: publicSite()
+  });
+});
 app.use(createMediaRouter());
 app.use(createApiRouter());
-
-app.get("/b/:slug/t/:code", (_req, res) => {
-  res.sendFile(path.join(publicDir, "table.html"));
-});
-app.get("/b/:slug", (_req, res) => {
-  res.sendFile(path.join(publicDir, "shop.html"));
-});
-app.get("/plateforme", (_req, res) => {
-  res.sendFile(path.join(publicDir, "plateforme.html"));
-});
 
 app.get("/media/*", (req, res) => {
   try {
@@ -49,7 +56,23 @@ app.get("/media/*", (req, res) => {
   }
 });
 
-app.use(express.static(publicDir));
+if (dataRole()) {
+  app.use((req, res) => {
+    const dest = publicSite() + (req.originalUrl || "/");
+    res.redirect(302, dest);
+  });
+} else {
+  app.get("/b/:slug/t/:code", (_req, res) => {
+    res.sendFile(path.join(publicDir, "table.html"));
+  });
+  app.get("/b/:slug", (_req, res) => {
+    res.sendFile(path.join(publicDir, "shop.html"));
+  });
+  app.get("/plateforme", (_req, res) => {
+    res.sendFile(path.join(publicDir, "plateforme.html"));
+  });
+  app.use(express.static(publicDir));
+}
 
 async function ensureIcons() {
   const dir = path.join(publicDir, "admin");

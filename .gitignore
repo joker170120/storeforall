@@ -9,3 +9,5 @@ data/parts/
 data/tmp/
 *.log
 .DS_Store
+.vercel/
+.vercel

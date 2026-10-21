@@ -1,0 +1,35 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://storeforall.167.233.117.168.sslip.io/api/:path*"
+    },
+    {
+      "source": "/media/:path*",
+      "destination": "https://storeforall.167.233.117.168.sslip.io/media/:path*"
+    },
+    {
+      "source": "/healthz",
+      "destination": "https://storeforall.167.233.117.168.sslip.io/healthz"
+    },
+    {
+      "source": "/b/:slug/t/:code",
+      "destination": "/table.html"
+    },
+    {
+      "source": "/b/:slug",
+      "destination": "/shop.html"
+    },
+    {
+      "source": "/plateforme",
+      "destination": "/plateforme.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin/index.html"
+    }
+  ]
+}

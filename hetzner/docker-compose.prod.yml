@@ -1,5 +1,8 @@
-# App sur Hetzner. Fichiers sur Wasabi. Lecture via Bunny CDN.
+# Base de données et pipeline média (ffmpeg, upload, HLS).
+# Le site public est https://storeforall.vercel.app — pas cette machine.
 # Les secrets restent dans .env, jamais dans ce fichier.
+name: storeforall
+
 services:
   storeforall:
     build:
@@ -12,10 +15,44 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "4180"
-    volumes:
-      - storeforall-data:/app/data
+      ROLE: data
+      PUBLIC_BASE_URL: https://storeforall.vercel.app
     ports:
       - "4180:4180"
+    volumes:
+      - storeforall-data:/app/data
+    networks:
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.http.middlewares.storeforall-gzip.compress=true
+      - traefik.http.routers.storeforall-http.entryPoints=http
+      - traefik.http.routers.storeforall-http.middlewares=storeforall-gzip
+      - traefik.http.routers.storeforall-http.rule=Host(`storeforall.167.233.117.168.sslip.io`)
+      - traefik.http.routers.storeforall-http.service=storeforall
+      - traefik.http.routers.storeforall-https.entryPoints=https
+      - traefik.http.routers.storeforall-https.middlewares=storeforall-gzip
+      - traefik.http.routers.storeforall-https.rule=Host(`storeforall.167.233.117.168.sslip.io`)
+      - traefik.http.routers.storeforall-https.service=storeforall
+      - traefik.http.routers.storeforall-https.tls=true
+      - traefik.http.routers.storeforall-https.tls.certresolver=letsencrypt
+      - traefik.http.services.storeforall.loadbalancer.server.port=4180
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:4180/healthz',(r)=>{r.resume();process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
 
 volumes:
   storeforall-data:
+
+networks:
+  coolify:
+    external: true

@@ -91,9 +91,13 @@ function createApiRouter() {
     const { ffmpegAvailable } = require("../lib/compress");
     const wasabi = require("../lib/wasabi");
     const bunny = require("../lib/bunny");
+    const dataRole = process.env.ROLE === "data";
     res.json({
       ok: true,
       service: "storeforall",
+      role: dataRole ? "data" : "site",
+      storage: dataRole ? "hetzner" : "local",
+      publicSite: String(process.env.PUBLIC_BASE_URL || "https://storeforall.vercel.app").replace(/\/$/, ""),
       media: {
         driver: wasabi.driver(),
         wasabi: wasabi.isConfigured(),
